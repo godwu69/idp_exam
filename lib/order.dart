@@ -1,9 +1,9 @@
 class Order {
-  String item;
-  String itemName;
-  double price;
-  String currency;
-  int quantity;
+  final String item;
+  final String itemName;
+  final double price;
+  final String currency;
+  final int quantity;
 
   Order({
     required this.item,
@@ -13,23 +13,19 @@ class Order {
     required this.quantity,
   });
 
-  factory Order.fromJson(Map<String, dynamic> json) {
-    return Order(
-      item: json['Item'],
-      itemName: json['ItemName'],
-      price: (json['Price']).toDouble(),
-      currency: json['Currency'],
-      quantity: json['Quantity'],
-    );
-  }
+  factory Order.fromJson(Map<String, dynamic> json) => Order(
+    item: json['item'] as String,
+    itemName: json['itemName'] as String,
+    price: (json['price'] as num).toDouble(),
+    currency: json['currency'] as String,
+    quantity: json['quantity'] as int,
+  );
 
-  Map<String, dynamic> toJson() {
-    return {
-      'Item': item,
-      'ItemName': itemName,
-      'Price': price,
-      'Currency': currency,
-      'Quantity': quantity,
-    };
-  }
+  Map<String, dynamic> toJson() => {
+    'item': item,
+    'itemName': itemName,
+    'price': price,
+    'currency': currency,
+    'quantity': quantity,
+  };
 }

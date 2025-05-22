@@ -1,9 +1,10 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'order.dart';
+import 'order_storage.dart';
 
-void main() => runApp(OrderApp());
+void main() {
+  runApp(OrderApp());
+}
 
 class OrderApp extends StatefulWidget {
   @override
@@ -17,28 +18,43 @@ class _OrderAppState extends State<OrderApp> {
   @override
   void initState() {
     super.initState();
-    loadOrdersFromFile();
+    loadOrders();
   }
 
-  Future<void> loadOrdersFromFile() async {
-    final String jsonString = await rootBundle.loadString('assets/order.json');
-    final List<dynamic> parsed = json.decode(jsonString);
+  Future<void> loadOrders() async {
+    final data = await OrderStorage.readOrders();
     setState(() {
-      orders = parsed.map((e) => Order.fromJson(e)).toList();
+      orders = data;
     });
   }
 
-  void addOrder(Order order) {
+  void addOrder(Order order) async {
     setState(() {
       orders.add(order);
     });
+    await OrderStorage.writeOrders(orders);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Order Added')),
+    );
+  }
+
+  void _deleteOrder(Order order) async {
+    setState(() {
+      orders.remove(order);
+    });
+    await OrderStorage.writeOrders(orders);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Order Deleted')),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final filtered = searchTerm.isEmpty
         ? orders
-        : orders.where((o) => o.itemName.toLowerCase().contains(searchTerm.toLowerCase())).toList();
+        : orders
+        .where((o) => o.itemName.toLowerCase().contains(searchTerm.toLowerCase()))
+        .toList();
 
     return MaterialApp(
       debugShowCheckedModeBanner: false,
@@ -63,9 +79,19 @@ class _OrderAppState extends State<OrderApp> {
                 itemCount: filtered.length,
                 itemBuilder: (context, index) {
                   final order = filtered[index];
-                  return ListTile(
-                    title: Text("${order.itemName} - ${order.price} ${order.currency}"),
-                    subtitle: Text("Item: ${order.item} | Quantity: ${order.quantity}"),
+                  return Card(
+                    margin: EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    child: ListTile(
+                      leading: CircleAvatar(child: Text(order.item[0])),
+                      title: Text("${order.itemName} (${order.currency} ${order.price})",
+                          style: TextStyle(fontWeight: FontWeight.bold)),
+                      subtitle: Text("Item: ${order.item} - Quantity: ${order.quantity}"),
+                      trailing: IconButton(
+                        icon: Icon(Icons.delete, color: Colors.red),
+                        onPressed: () => _deleteOrder(filtered[index]),
+                      ),
+
+                    ),
                   );
                 },
               ),
@@ -77,6 +103,7 @@ class _OrderAppState extends State<OrderApp> {
     );
   }
 }
+
 
 class OrderForm extends StatefulWidget {
   final Function(Order) onAdd;
@@ -105,7 +132,6 @@ class _OrderFormState extends State<OrderForm> {
         quantity: int.parse(_quantityController.text),
       );
       widget.onAdd(newOrder);
-
       _itemController.clear();
       _itemNameController.clear();
       _priceController.clear();
@@ -125,11 +151,41 @@ class _OrderFormState extends State<OrderForm> {
           child: Column(
             children: [
               Text("➕ Add New Order", style: TextStyle(fontWeight: FontWeight.bold)),
-              TextFormField(controller: _itemController, decoration: InputDecoration(labelText: 'Item'), validator: (val) => val!.isEmpty ? 'Required' : null),
-              TextFormField(controller: _itemNameController, decoration: InputDecoration(labelText: 'Item Name'), validator: (val) => val!.isEmpty ? 'Required' : null),
-              TextFormField(controller: _priceController, decoration: InputDecoration(labelText: 'Price'), keyboardType: TextInputType.number, validator: (val) => val!.isEmpty ? 'Required' : null),
-              TextFormField(controller: _currencyController, decoration: InputDecoration(labelText: 'Currency'), validator: (val) => val!.isEmpty ? 'Required' : null),
-              TextFormField(controller: _quantityController, decoration: InputDecoration(labelText: 'Quantity'), keyboardType: TextInputType.number, validator: (val) => val!.isEmpty ? 'Required' : null),
+              TextFormField(
+                controller: _itemController,
+                decoration: InputDecoration(labelText: 'Item'),
+                validator: (val) => val!.isEmpty ? 'Required' : null,
+              ),
+              TextFormField(
+                controller: _itemNameController,
+                decoration: InputDecoration(labelText: 'Item Name'),
+                validator: (val) => val!.isEmpty ? 'Required' : null,
+              ),
+              TextFormField(
+                controller: _priceController,
+                decoration: InputDecoration(labelText: 'Price'),
+                keyboardType: TextInputType.number,
+                validator: (val) {
+                  if (val == null || val.isEmpty) return 'Required';
+                  if (double.tryParse(val) == null) return 'Invalid number';
+                  return null;
+                },
+              ),
+              TextFormField(
+                controller: _currencyController,
+                decoration: InputDecoration(labelText: 'Currency'),
+                validator: (val) => val!.isEmpty ? 'Required' : null,
+              ),
+              TextFormField(
+                controller: _quantityController,
+                decoration: InputDecoration(labelText: 'Quantity'),
+                keyboardType: TextInputType.number,
+                validator: (val) {
+                  if (val == null || val.isEmpty) return 'Required';
+                  if (int.tryParse(val) == null) return 'Invalid number';
+                  return null;
+                },
+              ),
               SizedBox(height: 10),
               ElevatedButton(onPressed: _submit, child: Text("Insert Order")),
             ],
